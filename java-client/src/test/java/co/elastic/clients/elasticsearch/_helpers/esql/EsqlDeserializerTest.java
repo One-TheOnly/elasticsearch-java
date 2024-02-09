@@ -17,9 +17,8 @@
  * under the License.
  */
 
-package co.elastic.clients.elasticsearch._helpers.sql;
+package co.elastic.clients.elasticsearch._helpers.esql;
 
-import co.elastic.clients.elasticsearch._helpers.esql.EsqlDeserializer;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.endpoints.BinaryDataResponse;
 import co.elastic.clients.transport.endpoints.BinaryResponse;

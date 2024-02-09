@@ -50,38 +50,4 @@ public class EsqlHelper {
         BinaryResponse response = transport.performRequest(q, QueryRequest._ENDPOINT, null);
         return deserializer.deserialize(response, transport.jsonpMapper());
     }
-
-    /**
-     * Reads the header of an ES|QL response, moving the parser at the beginning of the first value row.
-     * The caller can then read row arrays until finding an end array that closes the top-level array.
-     */
-    static EsqlMetadata readHeader(JsonParser parser, JsonpMapper mapper) {
-        JsonpUtils.expectNextEvent(parser, JsonParser.Event.START_OBJECT);
-        JsonpUtils.expectNextEvent(parser, JsonParser.Event.KEY_NAME);
-
-        if (!"columns".equals(parser.getString())) {
-            throw new JsonpMappingException("Expecting a 'columns' property, but found '" + parser.getString() + "'", parser.getLocation());
-        }
-
-        List<EsqlMetadata.EsqlColumn> columns = JsonpDeserializer
-            .arrayDeserializer(JsonpDeserializer.<EsqlMetadata.EsqlColumn>of(EsqlMetadata.EsqlColumn.class))
-            .deserialize(parser, mapper);
-
-        EsqlMetadata result = new EsqlMetadata();
-        result.columns = columns;
-
-        JsonpUtils.expectNextEvent(parser, JsonParser.Event.KEY_NAME);
-
-        if (!"values".equals(parser.getString())) {
-            throw new JsonpMappingException("Expecting a 'values' property, but found '" + parser.getString() + "'", parser.getLocation());
-        }
-
-        JsonpUtils.expectNextEvent(parser, JsonParser.Event.START_ARRAY);
-
-        return result;
-    }
-
-    static void readFooter(JsonParser parser) {
-        JsonpUtils.expectNextEvent(parser, JsonParser.Event.END_OBJECT);
-    }
 }

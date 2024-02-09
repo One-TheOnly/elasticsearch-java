@@ -21,7 +21,9 @@ package co.elastic.clients.elasticsearch._helpers.esql;
 
 import co.elastic.clients.json.BufferingJsonGenerator;
 import co.elastic.clients.json.BufferingJsonpMapper;
+import co.elastic.clients.json.JsonpDeserializer;
 import co.elastic.clients.json.JsonpMapper;
+import co.elastic.clients.json.JsonpMappingException;
 import co.elastic.clients.json.JsonpUtils;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.endpoints.BinaryResponse;
@@ -33,6 +35,43 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EsqlDeserializerBase {
+
+    /**
+     * Reads the header of an ES|QL response, moving the parser at the beginning of the first value row.
+     * The caller can then read row arrays until finding an end array that closes the top-level array.
+     */
+    public static EsqlMetadata readHeader(JsonParser parser, JsonpMapper mapper) {
+        JsonpUtils.expectNextEvent(parser, JsonParser.Event.START_OBJECT);
+        JsonpUtils.expectNextEvent(parser, JsonParser.Event.KEY_NAME);
+
+        if (!"columns".equals(parser.getString())) {
+            throw new JsonpMappingException("Expecting a 'columns' property, but found '" + parser.getString() + "'", parser.getLocation());
+        }
+
+        List<EsqlMetadata.EsqlColumn> columns = JsonpDeserializer
+            .arrayDeserializer(JsonpDeserializer.<EsqlMetadata.EsqlColumn>of(EsqlMetadata.EsqlColumn.class))
+            .deserialize(parser, mapper);
+
+        EsqlMetadata result = new EsqlMetadata();
+        result.columns = columns;
+
+        JsonpUtils.expectNextEvent(parser, JsonParser.Event.KEY_NAME);
+
+        if (!"values".equals(parser.getString())) {
+            throw new JsonpMappingException("Expecting a 'values' property, but found '" + parser.getString() + "'", parser.getLocation());
+        }
+
+        JsonpUtils.expectNextEvent(parser, JsonParser.Event.START_ARRAY);
+
+        return result;
+    }
+
+    /**
+     * Checks the footer of an ES|QL response, once the values have been read.
+     */
+    public static void readFooter(JsonParser parser) {
+        JsonpUtils.expectNextEvent(parser, JsonParser.Event.END_OBJECT);
+    }
 
     static class ObjectList<T> implements EsqlDeserializer<Iterable<T>> {
 
@@ -64,7 +103,7 @@ public class EsqlDeserializerBase {
 
             JsonParser parser = mapper.jsonProvider().createParser(response.content());
 
-            List<EsqlMetadata.EsqlColumn> columns = EsqlHelper.readHeader(parser, mapper).columns;
+            List<EsqlMetadata.EsqlColumn> columns = readHeader(parser, mapper).columns;
 
             List<T> results = new ArrayList<>();
             JsonParser.Event event;
@@ -80,22 +119,22 @@ public class EsqlDeserializerBase {
                 JsonpUtils.expectNextEvent(parser, JsonParser.Event.END_ARRAY);
             }
 
-            EsqlHelper.readFooter(parser);
+            readFooter(parser);
 
             return results;
         }
 
         private T parseRow(List<EsqlMetadata.EsqlColumn> columns, JsonParser parser, JsonpMapper mapper) {
-            BufferingJsonGenerator bjson = ((BufferingJsonpMapper)mapper).createBufferingGenerator();
+            BufferingJsonGenerator buffer = ((BufferingJsonpMapper)mapper).createBufferingGenerator();
 
-            bjson.writeStartObject();
+            buffer.writeStartObject();
             for (EsqlMetadata.EsqlColumn column: columns) {
-                bjson.writeKey(column.name);
-                JsonpUtils.copy(parser, bjson);
+                buffer.writeKey(column.name);
+                JsonpUtils.copy(parser, buffer);
             }
-            bjson.writeEnd();
+            buffer.writeEnd();
 
-            return mapper.deserialize(bjson.getParser(), type);
+            return mapper.deserialize(buffer.getParser(), type);
         }
     }
 }
