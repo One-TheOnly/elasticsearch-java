@@ -19,6 +19,8 @@
 
 package co.elastic.clients.json.jackson;
 
+import co.elastic.clients.json.BufferingJsonGenerator;
+import co.elastic.clients.json.BufferingJsonpMapper;
 import co.elastic.clients.json.JsonpDeserializer;
 import co.elastic.clients.json.JsonpDeserializerBase;
 import co.elastic.clients.json.JsonpMapper;
@@ -27,6 +29,7 @@ import co.elastic.clients.json.JsonpSerializer;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.util.TokenBuffer;
 import jakarta.json.spi.JsonProvider;
 import jakarta.json.stream.JsonGenerator;
 import jakarta.json.stream.JsonParser;
@@ -35,7 +38,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.EnumSet;
 
-public class JacksonJsonpMapper extends JsonpMapperBase {
+public class JacksonJsonpMapper extends JsonpMapperBase implements BufferingJsonpMapper {
 
     private final JacksonJsonProvider provider;
     private final ObjectMapper objectMapper;
@@ -99,6 +102,11 @@ public class JacksonJsonpMapper extends JsonpMapperBase {
         } catch (IOException ioe) {
             throw JacksonUtils.convertException(ioe);
         }
+    }
+
+    @Override
+    public BufferingJsonGenerator createBufferingGenerator() {
+        return new JacksonJsonpGenerator.Buffering(this);
     }
 
     private class JacksonValueParser<T> extends JsonpDeserializerBase<T> {
